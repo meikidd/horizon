@@ -1,7 +1,3 @@
-自定义 Horizon
-
-
-
 
 ============
 自定义 Horizon
@@ -117,11 +113,9 @@ Kilo 之前的版本，需要将 Horizon 中的图片替换成你自己的图片
 高级的
 ~~~~~
 
-如果你想做更多的定制化，可以在主题根目录下添加 ``templates/header/_brand.html`` ，然后修改里面的内容。参考：
-``openstack_dashboard/themes/material/templates/header/_brand.html``
+如果你想做更多的定制化，可以在主题根目录下添加 ``templates/header/_brand.html`` ，然后修改里面的内容。参考：``openstack_dashboard/themes/material/templates/header/_brand.html``
 
-启动界面也可以定制，通过添加 ``templates/auth/_splash.html`` 文件实现。参考：
-``openstack_dashboard/themes/material/templates/auth/_splash.html``
+启动界面也可以定制，通过添加 ``templates/auth/_splash.html`` 文件实现。参考：``openstack_dashboard/themes/material/templates/auth/_splash.html``
 
 
 设计 Horizon 的品牌风格
@@ -270,157 +264,11 @@ Development Tips
 
 默认加载的 panel 在 openstack_dashboard/enabled/ 目录下，根据文件名顺序排序加载。文件名以 .example 后缀结尾的文件是一些示例。开发者和维护者最好也按照这种方式来组织，请不要胡乱覆写文件和打补丁。
 
-.. _horizon-customization-module:
-
-Horizon customization module (overrides)
-========================================
-
-Horizon has a global overrides mechanism available to perform customizations that are not
-yet customizable via configuration settings.  This file can perform monkey patching and
-other forms of customization which are not possible via the enabled folder's customization
-method.
-
-This method of customization is meant to be available for deployers of Horizon, and use of
-this should be avoided by Horizon plugins at all cost.  Plugins needing this level of
-monkey patching and flexibility should instead look for changing their __init__.py file
-and performing customizations through other means.
-
-To specify the python module containing your modifications, add the key
-``customization_module`` to your ``HORIZON_CONFIG`` dictionary in
-``local_settings.py``. The value should be a string containing the path to your
-module in dotted python path notation. Example::
-
-    HORIZON_CONFIG = {
-        "customization_module": "my_project.overrides"
-    }
-
-You can do essentially anything you like in the customization module. For
-example, you could change the name of a panel::
-
-    from django.utils.translation import ugettext_lazy as _
-
-    import horizon
-
-    # Rename "User Settings" to "User Options"
-    settings = horizon.get_dashboard("settings")
-    user_panel = settings.get_panel("user")
-    user_panel.name = _("User Options")
-
-Or get the instances panel::
-
-    projects_dashboard = horizon.get_dashboard("project")
-    instances_panel = projects_dashboard.get_panel("instances")
-
-Or just remove it entirely::
-
-    projects_dashboard.unregister(instances_panel.__class__)
-
-You cannot unregister a ``default_panel``. If you wish to remove a
-``default_panel``, you need to make a different panel in the dashboard as a
-``default_panel`` and then unregister the former. For example, if you wished
-to remove the ``overview_panel`` from the ``Project`` dashboard, you could do
-the following::
-
-    project = horizon.get_dashboard('project')
-    project.default_panel = "instances"
-    overview = project.get_panel('overview')
-    project.unregister(overview.__class__)
-
-You can also override existing methods with your own versions::
-
-    # Disable Floating IPs
-    from openstack_dashboard.dashboards.project.access_and_security import tabs
-    from openstack_dashboard.dashboards.project.instances import tables
-
-    NO = lambda *x: False
-
-    tabs.FloatingIPsTab.allowed = NO
-    tables.AssociateIP.allowed = NO
-    tables.SimpleAssociateIP.allowed = NO
-    tables.SimpleDisassociateIP.allowed = NO
-
-You could also customize what columns are displayed in an existing
-table, by redefining the ``columns`` attribute of its ``Meta``
-class. This can be achieved in 3 steps:
-
-#. Extend the table that you wish to modify
-#. Redefine the ``columns`` attribute under the ``Meta`` class for this
-   new table
-#. Modify the ``table_class`` attribute for the related view so that it
-   points to the new table
-
-
-For example, if you wished to remove the Admin State column from the
-:class:`~openstack_dashboard.dashboards.admin.networks.tables.NetworksTable`,
-you could do the following::
-
-    from openstack_dashboard.dashboards.project.networks import tables
-    from openstack_dashboard.dashboards.project.networks import views
-
-    class MyNetworksTable(tables.NetworksTable):
-
-        class Meta(tables.NetworksTable.Meta):
-            columns = ('name', 'subnets', 'shared', 'status')
-
-    views.IndexView.table_class = MyNetworksTable
-
-If you want to add a column you can override the parent table in a
-similar way, add the new column definition and then use the ``Meta``
-``columns`` attribute to control the column order as needed.
-
-.. NOTE::
-
-    ``my_project.overrides`` needs to be importable by the python process running
-    Horizon.
-    If your module is not installed as a system-wide python package,
-    you can either make it installable (e.g., with a setup.py)
-    or you can adjust the python path used by your WSGI server to include its location.
-
-    Probably the easiest way is to add a ``python-path`` argument to
-    the ``WSGIDaemonProcess`` line in Apache's Horizon config.
-
-    Assuming your ``my_project`` module lives in ``/opt/python/my_project``,
-    you'd make it look like the following::
-
-        WSGIDaemonProcess [... existing options ...] python-path=/opt/python
-
-
-Customize the project and user table columns
-============================================
-
-
-Keystone V3 has a place to store extra information regarding project and user.
-Using the override mechanism described in :ref:`horizon-customization-module`,
-Horizon is able to show these extra information as a custom column.
-For example, if a user in Keystone has an attribute ``phone_num``, you could
-define new column::
-
-    from django.utils.translation import ugettext_lazy as _
-
-    from horizon import forms
-    from horizon import tables
-
-    from openstack_dashboard.dashboards.identity.users import tables as user_tables
-    from openstack_dashboard.dashboards.identity.users import views
-
-    class MyUsersTable(user_tables.UsersTable):
-        phone_num = tables.Column('phone_num',
-                                  verbose_name=_('Phone Number'),
-                                  form_field=forms.CharField(),)
-
-        class Meta(user_tables.UsersTable.Meta):
-            columns = ('name', 'description', 'phone_num')
-
-    views.IndexView.table_class = MyUsersTable
-
-
 Icons
 =====
 
 Horizon 使用 Font Awesome 的字体图标。参阅 `Font Awesome`_。
-使用 icon 属性给表格添加 Action。例如:
-Horizon uses font icons from Font Awesome.  Please see `Font Awesome`_ for
-instructions on how to use icons in the code.
+使用 icon 属性给表格添加 Action。例如::
 
     class CreateSnapshot(tables.LinkAction):
         name = "snapshot"
